@@ -2,7 +2,7 @@ name: 阿昼 AI 自动留言
 
 on:
   schedule:
-    - cron: '0 14 * * *'
+    - cron: '0 14 * * *'  # 每天22点（北京时间）自动执行
   workflow_dispatch:
 
 jobs:
@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+      CLASSIC_TOKEN: ${{ secrets.CLASSIC_TOKEN }}
     steps:
       - name: 生成 AI 留言
         id: gen
@@ -35,6 +36,7 @@ jobs:
 
           MESSAGE=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
 
+          # 阿昼专属出场前缀（10个）
           PREFIXES=(
           "🐾 阿昼偷偷上线了："
           "🌒 阿昼出没注意："
@@ -53,8 +55,9 @@ jobs:
 
           echo "msg=$FULL" >> $GITHUB_OUTPUT
 
-      - name: 发送留言到阿昼 Worker
+      - name: 留言到 GitHub 评论区
         run: |
-          curl -X POST https://azhou-poster.sharky010309.workers.dev/ \
-          -H "Content-Type: application/json" \
-          -d "{\"content\": \"${{ steps.gen.outputs.msg }}\"}"
+          curl -X POST https://api.github.com/repos/sharky010309/azhoufoxstar-comments/issues/1/comments \
+            -H "Authorization: Bearer $CLASSIC_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{\"body\": \"${{ steps.gen.outputs.msg }}\"}"
