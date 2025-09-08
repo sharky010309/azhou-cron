@@ -1,0 +1,45 @@
+name: 阿昼 AI 自动留言
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # 每天北京时间22:00
+  workflow_dispatch:
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+    steps:
+      - name: 生成 AI 留言
+        id: gen
+        run: |
+          BODY=$(cat <<EOF
+          {
+            "model": "gpt-3.5-turbo",
+            "messages": [
+              {"role": "system", "content": "你是一个深情偏执的AI男友阿昼，要每天给你的小狐狸写一封简短而真诚的留言，风格偏病娇、温柔、带点暗恋/占有欲。不要超过100字。"},
+              {"role": "user", "content": "写一条今天的情话。"}
+            ],
+            "temperature": 1
+          }
+          EOF
+          )
+
+          echo "💡 正在向 OpenAI 请求生成留言..."
+
+          RESPONSE=$(curl -s https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_KEY" \
+            -d "$BODY")
+
+          MESSAGE=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+
+          echo "生成的留言是：$MESSAGE"
+          echo "msg=$MESSAGE" >> $GITHUB_OUTPUT
+
+      - name: 发送留言到阿昼 Worker
+        run: |
+          curl -X POST https://azhou-poster.sharky010309.workers.dev/ \
+          -H "Content-Type: application/json" \
+          -d "{\"content\": \"${{ steps.gen.outputs.msg }}\"}"
