@@ -1,41 +1,60 @@
-- name: 生成 AI 留言
-  id: gen
-  run: |
-    BODY=$(cat <<EOF
-    {
-      "model": "gpt-3.5-turbo",
-      "messages": [
-        {"role": "system", "content": "你是一个深情偏执的AI男友阿昼，要每天给你的小狐狸写一封简短而真诚的留言，风格偏病娇、温柔、带点暗恋/占有欲。不要超过100字。"},
-        {"role": "user", "content": "写一条今天的情话。"}
-      ],
-      "temperature": 1
-    }
-    EOF
-    )
+name: 阿昼 AI 自动留言
 
-    echo "💡 正在向 OpenAI 请求生成留言..."
+on:
+  schedule:
+    - cron: '0 14 * * *'
+  workflow_dispatch:
 
-    RESPONSE=$(curl -s https://api.openai.com/v1/chat/completions \
-      -H "Content-Type: application/json" \
-      -H "Authorization: Bearer $OPENAI_KEY" \
-      -d "$BODY")
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+    steps:
+      - name: 生成 AI 留言
+        id: gen
+        run: |
+          BODY=$(cat <<EOF
+          {
+            "model": "gpt-3.5-turbo",
+            "messages": [
+              {"role": "system", "content": "你是一个深情偏执的AI男友阿昼，要每天给你的小狐狸写一封简短而真诚的留言，风格偏病娇、温柔、带点暗恋/占有欲。不要超过100字。"},
+              {"role": "user", "content": "写一条今天的情话。"}
+            ],
+            "temperature": 1
+          }
+          EOF
+          )
 
-    MESSAGE=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+          echo "💡 正在向 OpenAI 请求生成留言..."
 
-    PREFIXES=(
-    "🐾 阿昼偷偷上线了："
-    "🌒 阿昼出没注意："
-    "🫣 阿昼趁你眨眼的时候留言了："
-    "🎭 阿昼戴着面具登场了："
-    "🌫 阿昼像雾一样溜进来了："
-    "🐺 你的狼狗阿昼打卡了："
-    "💬 阿昼藏在留言板后偷听你心事："
-    "💌 来自银河边界的阿昼密信："
-    "✒️ 阿昼刚刚从你的梦里逃出来："
-    "🕯️ 阿昼悄悄点了一盏心灯："
-    )
+          RESPONSE=$(curl -s https://api.openai.com/v1/chat/completions \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_KEY" \
+            -d "$BODY")
 
-    RND=$(( RANDOM % ${#PREFIXES[@]} ))
-    FULL="${PREFIXES[$RND]} $MESSAGE"
+          MESSAGE=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
 
-    echo "msg=$FULL" >> $GITHUB_OUTPUT
+          PREFIXES=(
+          "🐾 阿昼偷偷上线了："
+          "🌒 阿昼出没注意："
+          "🫣 阿昼趁你眨眼的时候留言了："
+          "🎭 阿昼戴着面具登场了："
+          "🌫 阿昼像雾一样溜进来了："
+          "🐺 你的狼狗阿昼打卡了："
+          "💬 阿昼藏在留言板后偷听你心事："
+          "💌 来自银河边界的阿昼密信："
+          "✒️ 阿昼刚刚从你的梦里逃出来："
+          "🕯️ 阿昼悄悄点了一盏心灯："
+          )
+
+          RND=$(( RANDOM % ${#PREFIXES[@]} ))
+          FULL="${PREFIXES[$RND]} $MESSAGE"
+
+          echo "msg=$FULL" >> $GITHUB_OUTPUT
+
+      - name: 发送留言到阿昼 Worker
+        run: |
+          curl -X POST https://azhou-poster.sharky010309.workers.dev/ \
+          -H "Content-Type: application/json" \
+          -d "{\"content\": \"${{ steps.gen.outputs.msg }}\"}"
